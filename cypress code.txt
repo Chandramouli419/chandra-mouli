@@ -1,0 +1,40 @@
+---
+trigger:
+  branches:
+    include:
+    - master
+pool:
+  name: Azure Pipelines
+steps:
+- task: NodeTool@0
+  displayName: 'Install Node.js'
+  inputs:
+    versionSpec: '14.x'
+
+- task: Npm@1
+  displayName: 'Install Cypress'
+  inputs:
+    command: 'install'
+    workingDir: $(System.DefaultWorkingDirectory)/my-app
+
+- task: Npm@1
+  displayName: 'Run Cypress Tests'
+  inputs:
+    command: 'run test'
+    workingDir: $(System.DefaultWorkingDirectory)/my-app
+  condition: and(succeeded(), eq(steps.Npm.outputs['npm-run-test.exitCode'], '0'))
+  continueOnError: false
+
+- task: PublishTestResults@2
+  displayName: 'Publish Cypress Test Results'
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/cypress/results/junit.xml'
+  condition: and(succeeded(), eq(steps.Npm.outputs['npm-run-test.exitCode'], '0'))
+
+- task: PublishCodeCoverageResults@1
+  displayName: 'Publish Cypress Code Coverage Results'
+  inputs:
+    codeCoverageTool: 'Cypress'
+    summaryFileLocation: '**/cypress/results/coverage/coverage-summary.json'
+  condition: and(succeeded(), eq(steps.Npm.outputs['npm-run-test.exitCode'], '0'))
