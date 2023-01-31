@@ -1,0 +1,22 @@
+<code>$xml = [xml](Get-Content "path\to\your.xml")
+$testCases = $xml.TestRun.Results.UnitTestResult
+$passedTestCases = $testCases | 
+Where-Object {$_.outcome -eq 'Passed'}
+
+$numberOfPassedTests = $passedTestCases.count
+
+$totalTests = $testCases.count
+
+$passPercentage = ($numberOfPassedTests/$totalTests)*100
+
+if([math]::Round($passPercentage,2) -gt 80)
+{
+    Write-Host "Passed test cases are $passPercentage which is greater than 80%"
+    Exit 0
+}
+else
+{
+    Write-Host "Failed test cases. Passed test cases are $passPercentage which is less than 80%"
+    Exit 1
+}
+</code>
