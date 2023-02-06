@@ -1,0 +1,25 @@
+
+trigger:
+- main
+
+pool:
+  vmImage: 'Ubuntu-20.04'
+
+variables:
+  cypressTestUrl: 'https://test-url.com'
+  cypressUsername: 'test_username'
+  cypressPassword: 'test_password'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '12.x'
+
+- script: |
+    npm install cypress
+    npx cypress run
+  displayName: 'Cypress test'
+  env:
+    CYPRESS_baseUrl: $(cypressTestUrl)
+    CYPRESS_username: $(cypressUsername)
+    CYPRESS_password: $(cypressPassword)
