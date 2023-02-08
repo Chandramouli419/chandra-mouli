@@ -1,0 +1,43 @@
+trigger:
+- main
+
+pool:
+  //vmImage: 'Ubuntu-20.04'
+  name: Azure Pipelines
+  demands: npm
+  target: windows-latest
+
+variables:
+  cypressTestUrl: 'https://gpconnect.qa.stonex.com/'
+  cypressUsername: 'sasibaskar2510@gmail.com'
+  cypressPassword: 'Technologies$1235'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '12.x'
+
+- script: |
+    npm install cypress
+    npx cypress run
+  workingDir: 'src/web/fx-payments/apps/fxpayments-app-e2e/FXPaymentsCucumber'
+  displayName: 'Cypress test'
+  env:
+    CYPRESS_baseUrl: $(cypressTestUrl)
+    CYPRESS_username: $(cypressUsername)
+    CYPRESS_password: $(cypressPassword)
+
+- task: Npm@1
+  displayName: 'Merging Results'
+  inputs:
+    command: custom
+    workingDir: 'src/web/fx-payments/apps/fxpayments-app-e2e/FXPaymentsCucumber'
+    verbose: false
+    customCommand: 'run merge-reports'
+  condition: succeeded()
+
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results **/results-*.xml'
+  inputs:
+    testResultsFiles: '**/results-*.xml'
+  condition: succeeded()
