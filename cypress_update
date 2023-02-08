@@ -8,9 +8,9 @@ pool:
   target: windows-latest
 
 variables:
-  cypressTestUrl: 'https://gpconnect.qa.stonex.com/'
-  cypressUsername: 'sasibaskar2510@gmail.com'
-  cypressPassword: 'Technologies$1235'
+  cypressTestUrl: ''
+  cypressUsername: ''
+  cypressPassword: ''
 
 steps:
 - task: NodeTool@0
