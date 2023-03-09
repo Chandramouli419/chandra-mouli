@@ -1,0 +1,76 @@
+# Configure the Azure provider
+provider "azurerm" {
+  features {}
+}
+
+# Create a resource group for the AKS cluster
+resource "azurerm_resource_group" "aks_rg" {
+  name     = "my-aks-rg"
+  location = "eastus"
+}
+
+# Create the virtual network for the AKS cluster
+resource "azurerm_virtual_network" "aks_vnet" {
+  name                = "my-aks-vnet"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  address_space       = ["10.0.0.0/16"]
+
+  subnet {
+    name           = "aks-subnet"
+    address_prefix = "10.0.1.0/24"
+  }
+}
+
+# Create the AKS cluster
+resource "azurerm_kubernetes_cluster" "aks_cluster" {
+  name                = "my-aks-cluster"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  dns_prefix          = "my-aks-cluster"
+
+  node_resource_group = "my-aks-nodes"
+
+  linux_profile {
+    admin_username = "aksuser"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+    dns_service_ip = "10.0.1.10"
+    service_cidr   = "10.0.1.0/24"
+    pod_cidr       = "10.244.0.0/16"
+  }
+
+  default_node_pool {
+    name            = "default"
+    node_count      = 3
+    vm_size         = "Standard_D2_v2"
+    os_disk_size_gb = 30
+    vnet_subnet_id  = azurerm_virtual_network.aks_vnet.id
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  role_based_access_control {
+    enabled = true
+  }
+
+  private_cluster_enabled = true
+  private_dns_zone_id     = "/subscriptions/<subscription-id>/resourceGroups/<dns-resource-group>/providers/Microsoft.Network/privateDnsZones/<dns-zone-name>"
+  fqdn                    = "my-aks-cluster.private.<dns-zone-name>.priv"
+}
+
+In this code, we create a fully private AKS cluster by using a virtual network with a single subnet. The virtual network and subnet are created using the azurerm_virtual_network and subnet resources, respectively.
+
+We then create the AKS cluster using the azurerm_kubernetes_cluster resource. We specify the name, location, and resource group for the cluster, as well as the DNS prefix.
+
+The node_resource_group, linux_profile, and network_profile blocks are the same as in the previous example.
+
+The default_node_pool block now includes the vnet_subnet_id parameter, which specifies the ID of the subnet where the AKS nodes will be created. This ensures that the nodes are created within the private subnet of the virtual network.
+
+We also specify an identity for the AKS cluster, and enable role-based access control.
+
+Finally, we enable private cluster support, and specify the private DNS zone ID and FQDN for the cluster. The private DNS zone should be created separately using the Azure portal or the Azure CLI. The FQDN for the cluster should be a unique name within the private DNS zone.
