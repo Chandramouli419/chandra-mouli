@@ -1,0 +1,81 @@
+# Configure the Azure provider
+provider "azurerm" {
+  features {}
+}
+
+# Create a resource group for the AKS cluster
+resource "azurerm_resource_group" "aks_rg" {
+  name     = "my-aks-rg"
+  location = "eastus"
+}
+
+# Create a virtual network and subnet for the AKS nodes
+resource "azurerm_virtual_network" "aks_vnet" {
+  name                = "my-aks-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+
+  subnet {
+    name           = "aks-subnet"
+    address_prefix = "10.0.1.0/24"
+  }
+}
+
+# Create a network security group to restrict traffic to the AKS nodes
+resource "azurerm_network_security_group" "aks_nsg" {
+  name                = "my-aks-nsg"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+
+  security_rule {
+    name                       = "aks-control-plane"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9000-9999"
+    source_address_prefixes    = ["AzureCloud"]
+    destination_address_prefix = azurerm_virtual_network.aks_vnet.address_space[0]
+  }
+}
+
+# Create the AKS cluster
+resource "azurerm_kubernetes_cluster" "aks_cluster" {
+  name                = "my-aks-cluster"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  dns_prefix          = "my-aks-cluster"
+
+  node_resource_group = "my-aks-nodes"
+
+  linux_profile {
+    admin_username = "aksuser"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+    dns_service_ip = "10.2.0.10"
+    service_cidr   = "10.2.0.0/24"
+    pod_cidr       = "10.244.0.0/16"
+  }
+
+  default_node_pool {
+    name            = "default"
+    node_count      = 3
+    vm_size         = "Standard_D2_v2"
+    vnet_subnet_id  = azurerm_virtual_network.aks_vnet.id
+    os_disk_size_gb = 30
+  }
+
+  service_principal {
+    client_id     = "YOUR_CLIENT_ID"
+    client_secret = "YOUR_CLIENT_SECRET"
+  }
+
+  depends_on = [
+    azurerm_network_security_group.aks_nsg,
+  ]
+}
+
