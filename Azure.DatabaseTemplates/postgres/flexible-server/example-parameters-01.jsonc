@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "value": "cloudadmin"
+    },
+    "adminPassword": {
+      // Do not hardcode your value in this file (especially for production). Instead, tokenise it or use the override parameters function in the ARM template deployment task
+      "value": "12345678f!"
+    },
+    "serverName": {
+      "value": "psql-foobar-nonprod-eus-01"
+    },
+    "serverLocation": {
+      "value": "eastus"
+    },
+    "serverVersion": {
+      "value": "11"
+    },
+    "serverSku": {
+      "value": "GeneralPurpose_2Core_8GBMemory"
+    },
+    "highAvailabilityType": {
+      "value": "SameZone"
+    },
+    "enablePasswordAuthentication": {
+      "value": false
+    },
+    "storageMaxCapacityInGb": {
+      "value": 256
+    },
+    "backupsGeoRedundant": {
+      "value": false
+    },
+    "subnetId": {
+      "value": "/subscriptions/105849c7-0a47-45d0-a4db-8ece4fd39ade/resourceGroups/rg-networking/providers/Microsoft.Network/virtualNetworks/vnet-nonprod-eus-01/subnets/snet-private-data-02"
+    }
+  }
+}

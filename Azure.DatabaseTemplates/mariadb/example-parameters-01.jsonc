@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "value": "cloudadmin"
+    },
+    "adminPassword": {
+      // Do not hardcode your value in this file (especially for production). Instead, tokenise it or use the override parameters function in the ARM template deployment task
+      "value": "12345678f!"
+    },
+    "serverName": {
+      "value": "maria-trademanager-prod-eus2-01"
+    },
+    "serverLocation": {
+      "value": "eastus2"
+    },
+    "sku": {
+      "value": "4CoresWith20GbMemory"
+    },
+    "backupRetentionInDays": {
+      "value": 14
+    },
+    "backupRedundancy": {
+      "value": "MultiRegion"
+    },
+    "storageSizeInGb": {
+      "value": 256
+    },
+    "privateEndpointSubnetId": {
+      // Fully qualified resource ID of the subnet the private endpoint NIC should be placed in
+      "value": "FULLY_QUALIFIED_SUBNET_RESOURCE_ID"
+    },
+    "databaseNames": {
+      "value": [
+        "trades",
+        "users",
+        "configs"
+      ]
+    }
+  }
+}

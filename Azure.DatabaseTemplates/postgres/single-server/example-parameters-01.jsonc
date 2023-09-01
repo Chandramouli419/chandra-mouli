@@ -1,0 +1,67 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "adminUsername": {
+            "value": "cloudadmin"
+        },
+        "adminPassword": {
+            // Do not hardcode your value in this file (especially for production). Instead, tokenise it or use the override parameters function in the ARM template deployment task
+            "value": "12345678f!"
+        },
+        "customTags": {
+            "value": "{ 'Department': '12345 - XYZ' }"
+            // JSON string format for any additional tags you want to append to the resource.
+        },
+        "privateEndpointSubnetId": {
+            // Fully qualified resource ID of the subnet the private endpoint NIC should be placed in
+            "value": "FULLY_QUALIFIED_SUBNET_RESOURCE_ID"
+        },
+        "serverName": {
+            "value": "52312e10869d42"
+        },
+        "serverLocation": {
+            "value": "EastUS2"
+        },
+        "serverSkuName": {
+            // Choose carefully because if you select a Basic SKU, you can't scale up to GeneralPurpose (or vice versa if you want to scale down from GP to Basic) 
+            "value": "GP_Gen5_4"
+        },
+        "serverSecondaryEncryption": {
+            // Permitted values are "Enabled" or "Disabled", however, enabling this may impact performance in some cases
+            "value": "Disabled"
+        },
+        "storageBackupRetentionInDays": {
+            "value": 7
+        },
+        "storageGeoRedundantBackup": {
+            // Permitted values are "Enabled" or "Disabled"
+            "value": "Disabled"
+        },
+        "storageAutoGrow": {
+            // Permitted values are "Enabled" or "Disabled"
+            "value": "Disabled"
+        },
+        "storageMaxCapacityInMb": {
+            "value": 102400
+        },
+        "serverVersion": {
+            "value": "11"
+        },
+        "databaseCollection": {
+            // An array specifying all the databases you need creating in your server. Leave the array empty if you don't any any databases created.
+            "value": [
+                {
+                    "name": "s001",
+                    "charset": "UTF8",
+                    "collation": "en-US"
+                },
+                {
+                    "name": "s002",
+                    "charset": "UTF8",
+                    "collation": "en-US"
+                }
+            ]
+        }
+    }
+}

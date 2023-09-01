@@ -1,0 +1,62 @@
+variables:
+- name: major
+  value: 1
+- name: minor
+  value: 0
+- name: isMasterBranch
+  value: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+
+name: $(major).$(minor)$(Rev:.r)
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - master
+
+# You can use whichever agent pool you like, but we recommend the Self-hosted scale set
+pool: Self-hosted scale set - Ubuntu 20.04
+
+stages:
+- stage: dev
+  displayName: dev
+  jobs:
+    - job: dev
+      displayName: dev
+      steps:
+        - task: AzureResourceManagerTemplateDeployment@3
+          displayName: Deploy Postgres infrastructure
+          inputs:
+            deploymentScope: Resource Group
+            azureResourceManagerConnection: "PLACEHOLDER"                  # <-- Replace this with the name of your service connection
+            subscriptionId: "PLACEHOLDER"                                  # <-- Replace this with ID of your subscription
+            action: Create Or Update Resource Group
+            resourceGroupName: "PLACEHOLDER"                               # <-- Replace this with the name of the resource group you will deploy to
+            location: "PLACEHOLDER"                                        # <-- Replace this with the region you will deploy into
+            templateLocation: Linked artifact
+            csmFile: "PLACEHOLDER"                                         # <-- Replace this with the path to your template file
+            csmParametersFile: "PLACEHOLDER"                               # <-- Replace this with the path to your dev parameters file
+            overrideParameters: '-adminPassword "$(PLACEHOLDER)"'          # <-- Replace this with the name of any variables (inline or from variable groups)
+            deploymentMode: Incremental
+
+- stage: prod
+  displayName: Prod
+  condition: and(succeeded(), eq(variables.isMasterBranch, true))
+  jobs:
+    - job: prod
+      displayName: Prod
+      steps:
+        - task: AzureResourceManagerTemplateDeployment@3
+          displayName: Deploy Postgres infrastructure
+          inputs:
+            deploymentScope: Resource Group
+            azureResourceManagerConnection: "PLACEHOLDER"                  # <-- Replace this with the name of your service connection
+            subscriptionId: "PLACEHOLDER"                                  # <-- Replace this with ID of your subscription
+            action: Create Or Update Resource Group
+            resourceGroupName: "PLACEHOLDER"                               # <-- Replace this with the name of the resource group you will deploy to
+            location: "PLACEHOLDER"                                        # <-- Replace this with the region you will deploy into
+            templateLocation: Linked artifact
+            csmFile: "PLACEHOLDER"                                         # <-- Replace this with the path to your template file
+            csmParametersFile: "PLACEHOLDER"                               # <-- Replace this with the path to your prod parameters file
+            overrideParameters: '-adminPassword "$(PLACEHOLDER)"'          # <-- Replace this with the name of any variables (inline or from variable groups)
+            deploymentMode: Incremental
