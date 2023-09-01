@@ -1,0 +1,56 @@
+###############################################################################
+#
+# DESCRIPTION: Checkout and update a DSC repo by modifying a particular
+#              `images` field in a kustomization.yml document.
+#
+###############################################################################
+
+parameters:
+  remoteUrl: ''                     # Remote URL of DSC repo, HTTPS
+  deployBranch: ' '                 # Branch containing kustomization to edit
+  kustomizeDir: '.'                 # Directory containing kustomization to edit
+  imageName: ' '                    # Image name to edit in kustomization
+  imageTag: '$(Build.BuildNumber)'  # Image tag to edit in kustomization
+  maxRetryCount: 3                  # Number of retries in case of failure during git push
+
+steps:
+- bash: |
+    set -e
+
+    pushd "$(Agent.TempDirectory)"
+        echo "Cloning..."
+        rm -rf dsc
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" clone ${{ parameters.remoteUrl }} --verbose dsc
+        cd dsc
+
+        echo "Fetching..."
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" fetch origin ${{ parameters.deployBranch }}
+    
+        echo "Checkout..."
+        git checkout --progress --force ${{ parameters.deployBranch }}
+
+        echo "Moving to HEAD of the branch..."
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull
+    
+        echo "Kustomize..."
+        pushd ${{ parameters.kustomizeDir }} > /dev/null
+            kustomize edit set image ${{ parameters.imageName }}:${{ parameters.imageTag }}
+        popd > /dev/null
+    
+        echo "Configuring..."
+        git config --local user.name "DevOpsBuilds"
+        git config --local user.email "DevOpsBuilds@intlfcstone.com"
+    
+        echo "Committing..."
+        git add ${{ parameters.kustomizeDir }}*
+        git commit -m "Automated commit: CI/CD for ${{ parameters.imageName }}:${{ parameters.imageTag }}" || true
+        git status
+
+        echo "Pulling and pushing..."
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull --rebase
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:${{ parameters.deployBranch }}
+    
+        echo "Version number successfully bumped!"
+    popd
+  displayName: 'Kustomize Edit Image Tag In DSC'
+  retryCountOnTaskFailure: ${{ parameters.maxRetryCount }}

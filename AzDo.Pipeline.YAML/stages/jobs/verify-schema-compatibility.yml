@@ -1,0 +1,43 @@
+parameters:
+  - name: schemas
+    displayName: Repository url location where schema files are stored
+    type: string
+  - name: token
+    displayName: Azure devops token
+    type: string
+  - name: apikey
+    displayName: Schema Registry Api Key
+    type: string
+  - name: apisecret
+    displayName: Schema Registry Api Secret
+    type: string
+  - name: url
+    displayName: Schema Registry Url
+    type: string
+  - name: prefix
+    displayName: Prefix corresponds to project's namespace
+    type: object
+    default: []
+  - name: self_ref
+    displayName: Name of template repository reference
+    type: string
+    default: innersource
+
+jobs:
+- job: VerifySchemaCompatibility
+  pool:
+    name: 'Self-hosted scale set - Ubuntu 20.04'
+  steps:
+    - checkout: ${{ parameters.self_ref }}
+    - script: |
+        apt-get update
+        apt-get install python-pip
+        python -m pip install requests
+      displayName: 'install python dependencies'
+    - ${{ each prefix in parameters.prefix }}:
+      - task: PythonScript@0
+        displayName: 'verify schema compatibility'
+        inputs:
+          scriptSource: 'filePath'
+          scriptPath: 'stages/jobs/verify_schema_compatibility.py'
+          arguments: '--token ${{ parameters.token }} --apikey ${{ parameters.apikey }} --apisecret ${{ parameters.apisecret }} --url ${{ parameters.url }} --prefix ${{ prefix }} --schemas ${{ parameters.schemas }}'

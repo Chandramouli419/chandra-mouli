@@ -1,0 +1,24 @@
+###############################################################################
+#
+# DESCRIPTION: Adds tags to build based on commit message
+#              Each word wrapped in square brackets ('[' and ']')
+#              will be added as a tag
+#
+###############################################################################
+
+steps:
+  - powershell: |
+      Write-Host "Commit message:"
+      $separator = "*"*40
+      Write-Host $separator
+      Write-Host $env:BUILD_SOURCEVERSIONMESSAGE
+      Write-Host $separator
+
+      $regexPattern = [Regex]::new("\[([^\[\]]+)\]")
+      $regexMatches = $regexPattern.Matches($env:BUILD_SOURCEVERSIONMESSAGE)
+
+      foreach ($match in $regexMatches) {
+          $tag = $match.Groups[1]
+          Write-Host "##vso[build.addbuildtag]$tag"
+      }
+    displayName: "Set tags"

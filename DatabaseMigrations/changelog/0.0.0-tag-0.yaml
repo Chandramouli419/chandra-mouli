@@ -1,0 +1,8 @@
+  databaseChangeLog:
+  - changeSet:
+      id: 0.0.0-tag
+      author: Gaetano.Santonastaso
+      comments: Create-Tag-0.0.0
+      changes:
+        - tagDatabase:  
+            tag:  version_0.0.0

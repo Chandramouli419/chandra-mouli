@@ -1,0 +1,88 @@
+parameters:
+  - name: Project
+    type: string
+  - name: RepositoryName
+    type: string
+  - name: sourceBranch
+    type: string
+  - name: FolderPath
+    type: string
+  - name: kind
+    type: string
+  - name: NewAPIVersion
+    type: string
+
+trigger:
+  - none
+
+jobs:
+  - job: API_Modification
+    displayName: "API Version Modified"
+    workspace:
+      clean: all
+    steps:
+      - checkout: "git://${{ parameters.Project }}/${{ parameters.RepositoryName }}@${{ parameters.sourceBranch }}"
+        persistCredentials: true
+        clean: true
+
+      - bash: |
+          if ! command -v kubectl-convert &> /dev/null
+          then
+            echo "Installing kubectl-convert"
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl-convert"
+            sudo install -o root -g root -m 0755 kubectl-convert /usr/local/bin/kubectl-convert
+            rm -r kubectl-convert
+          else
+            echo "kubectl-convert already installed"
+          fi
+
+        displayName: "Install kubectl-convert"
+      - bash: |
+          set -e
+
+          echo "Configuring git..."
+          git config user.name "DevOps Automation"
+          git config user.email "DG-DevOps@StoneX.com"
+
+          git checkout -b $(Build.BuildNumber)
+          echo "##vso[task.setvariable variable=branchName;]$(Build.BuildNumber)"
+
+          for file in $( grep -lr "^kind: ${{ parameters.kind }}" "${{ parameters.FolderPath }}" ) ; do
+            filename="$file.new"
+            echo "Processing $file"
+
+            if grep --quiet -ci "${{ parameters.NewAPIVersion }}" "$file"
+            then
+              echo "File already updated"
+            elif grep --quiet -ci "{{" "$file"
+            then
+              echo "The file format not supported by the script. Please refer the FAQ Page which will be available soon"
+            else
+              echo "Modifying ${{ parameters.kind }} Version"
+              kubectl-convert -f "$file" --output-version ${{ parameters.NewAPIVersion }} > "$filename"
+              mv "$filename" "$file"
+              rm -rf "$filename"
+
+              echo "Committing..."
+              git add ${{ parameters.FolderPath }}
+              git commit -m "Automated commit: ${{ parameters.kind }} API Version Modified - $file"
+              git status
+
+              echo "Version updated successfully"
+            fi
+          done
+
+          echo "Pushing..."
+          git push origin $(Build.BuildNumber)
+          echo "The changes are pushed to new branch $(Build.BuildNumber). Please review the changes before merging"
+
+        displayName: "Modifying the version"
+
+      - bash: az devops configure --defaults organization=$(System.TeamFoundationCollectionUri) project="${{ parameters.project }}" --use-git-aliases true
+        displayName: "Set default Azure DevOps organization and project"
+
+      - bash: |
+          az repos pr create --repository "${{ parameters.RepositoryName }}" --source-branch "$(branchName)" --draft true --squash --target-branch "${{ parameters.sourceBranch }}" --reviewers "$(Build.RequestedFor)"
+        displayName: "Create PR"
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

@@ -1,0 +1,63 @@
+###############################################################################
+#
+# DESCRIPTION: Build all overlays, publish the manifest as an artifact of the
+#              build (named after the overlay). Tag the build with the overlay
+#              name. Here we are passing the overlay name dynamically.
+#
+################################################################################
+
+parameters:
+  - name: overlays
+    type: object
+    default: []
+    displayName: "List of overlays to build"
+  - name: overlayDir
+    type: string
+    displayName: "Directory where overlays are found"
+  - name: artifactNamePrefix
+    type: string
+    default: ""
+    displayName: "Artifact name prefix"
+  - name: poolName
+    type: string
+    default: Self-hosted scale set - Ubuntu 20.04
+
+jobs:
+  - job:
+    ${{ if ne(parameters.artifactNamePrefix, '') }}:
+      displayName: "Build manifests (prefix: '${{ parameters.artifactNamePrefix }}')"
+    ${{ else }}:
+      displayName: "Build manifests"
+    pool:
+      name: ${{ parameters.poolName }}
+    steps:
+      - task: PowerShell@2
+        env:
+          JSON_Overlays: ${{ convertToJson(parameters.overlays) }}
+        inputs:
+          targetType: inline
+          script: |
+            $kustomizeVersion = kustomize version
+            Write-Host "Kustomize version: $kustomizeVersion"
+
+            $overlays = $env:JSON_Overlays | ConvertFrom-Json
+            $overlaysProvided = $overlays -ne $null
+            if( -Not $overlaysProvided )
+            {
+              $overlays = (Get-ChildItem -Path "${{ parameters.overlayDir }}").Name
+            }
+
+            foreach ($overlay in $overlays) {
+              $overlayDirectory = "${{ parameters.overlayDir }}/$overlay"
+              if( -Not (Test-Path -Path $overlayDirectory) ){
+                Write-Host "##vso[task.logissue type=error]The [$overlay] does not exist."
+              }
+
+              $artifactName = "${{ parameters.artifactNamePrefix }}$overlay"
+              $artifactPath = "$(Build.ArtifactStagingDirectory)/$artifactName"
+              mkdir -p $artifactPath
+              kustomize build $overlayDirectory > $artifactPath/manifest.yml
+              Write-Host "##vso[artifact.upload artifactname=$artifactName]$artifactPath/manifest.yml"
+              Write-Host "##vso[build.addbuildtag]$artifactName"
+            }
+        displayName: "Build overlays"

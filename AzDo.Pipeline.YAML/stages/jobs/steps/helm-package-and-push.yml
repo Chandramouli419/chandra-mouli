@@ -1,0 +1,78 @@
+###############################################################################
+#
+# Helm-Package-And-Push: Package a named Helm chart in a directory, then push
+#   it to a Chart Museum repository. Works out-of-box with Helm v3. May require
+#   `helm init --client-only` with Helm v2.
+#
+###############################################################################
+
+parameters:
+  strictLint: false
+  updateDependencies: false
+  packageDir: ''        # root directory to package
+  chartName: ''         # name of the Helm chart being packaged/pushed
+  repoProtocol: 'https' # web protocol to use for helm repo
+  repoHost: ''          # hostname of helm repo
+  repoTenant: ''        # tenant to push to in helm repo (e.g. org1/repoa)
+  username: ''          # Username to authenticate as to Helm repo
+  password: ''          # Password to authenticate with to Helm repo (should be set as sensitive variable!)
+  verbose: false
+
+steps:
+- bash: |
+    set -e
+    if [ "${{ parameters.updateDependencies }}" == "true" ]; then
+        echo "Updating chart dependencies"
+        helm dependency update ${{ parameters.packageDir }}
+    fi
+    echo "linting ${{ parameters.packageDir }}..."
+    if [ "${{ parameters.strictLint }}" == "true" ]; then
+        helm lint --strict ${{ parameters.packageDir }}
+    else
+        helm lint ${{ parameters.packageDir }}
+    fi
+  displayName: Helm Lint
+- bash: |
+    set -e
+    echo "building ${{ parameters.packageDir }}..."
+    helm package ${{ parameters.packageDir }} --version $(Build.BuildNumber) --destination $(Build.ArtifactStagingDirectory)
+  displayName: Helm Package
+- bash: |
+    set -e
+
+    binary="$(Build.ArtifactStagingDirectory)/${{ parameters.chartName }}-$(Build.BuildNumber).tgz"
+
+    repoUrl=""
+    if [ "${{ parameters.repoTenant }}" != "" ]; then
+        repoUrl="${{ parameters.repoProtocol }}://${{ parameters.repoHost }}/api/${{ parameters.repoTenant }}/charts"
+    else
+        repoUrl="${{ parameters.repoProtocol }}://${{ parameters.repoHost }}/api/charts"
+    fi
+
+    echo "Pushing ${binary} to ${repoUrl}..."
+    if [ "${{ parameters.verbose }}" == "true" ]; then
+        echo " verbose: curl  -s  -k  -u ${{ parameters.username }}:${{ parameters.password }} --data-binary " "@${binary} "  "--verbose  ${repoUrl}"
+        curl \
+            -s \
+            -k \
+            -u ${{ parameters.username }}:${{ parameters.password }} \
+            --data-binary "@${binary}" \
+            --verbose \
+            ${repoUrl} > response.txt
+    else
+        curl \
+            -s \
+            -k \
+            -u ${{ parameters.username }}:${{ parameters.password }} \
+            --data-binary "@${binary}" \
+            ${repoUrl} > response.txt
+    fi
+
+    if [ "$(cat response.txt)" == '{"saved":true}' ]; then
+        echo "Binary successfully uploaded!"
+    else
+        echo "[ERROR] Binary upload failed!"
+        cat response.txt
+        exit 1
+    fi
+  displayName: Helm Push

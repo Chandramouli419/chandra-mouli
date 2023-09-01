@@ -1,0 +1,81 @@
+parameters:
+  - name: token
+    displayName: Azure devops token
+    type: string
+  - name: awx_token
+    displayName: AWX token
+    type: string
+  - name: schemas
+    displayName: Repository url location where schema files are stored
+    type: string
+  - name: topics
+    displayName: Repository url location where topic files are stored
+    type: string
+    default: none
+  - name: csv
+    displayName: Repository url location where customized schema mapping file is stored
+    type: string
+    default: none
+  - name: var
+    displayName: Generated var file name
+    type: string
+  - name: template
+    displayName: Template var file
+    type: string
+  - name: prefix
+    displayName: Prefix corresponds to project's namespace
+    type: string
+  - name: self_ref
+    displayName: Name of template repository reference
+    type: string
+    default: innersource
+
+jobs:
+- job: DeployCcloud
+  pool:
+    name: 'Self-hosted scale set - Ubuntu 20.04'
+  steps:
+    - checkout: ${{ parameters.self_ref }}
+    - task: DownloadSecureFile@1
+      displayName: 'Download template secure file'
+      name: template
+      inputs:
+        secureFile: '${{ parameters.template }}'
+    - script: |
+        apt-get update
+        apt-get install python-pip
+        python -m pip install requests
+      displayName: 'install python dependencies'
+    # Run a python script to dynamically generate ansible schema and topics properties
+    - task: PythonScript@0
+      displayName: Generate schemas and topics
+      inputs:
+        scriptSource: 'filePath'
+        scriptPath: 'stages/jobs/generate_schema_and_topics.py'
+        arguments: '--template $(template.secureFilePath) --var ${{ parameters.var }} --prefix ${{ parameters.prefix }} --token ${{ parameters.token }} --schemas ${{ parameters.schemas }} --topics ${{ parameters.topics }} --csv ${{ parameters.csv }}'
+    - task: Bash@3
+      displayName: Launch AWX job
+      inputs:
+        targetType: inline
+        script: |
+          #!/usr/bin/env bash
+          echo "Launching AWX Template"
+          curl -Lk -H "Authorization: Bearer ${{ parameters.awx_token }}" -H "Content-Type: application/json" -XPOST https://awx.dev.corp.stonex.com/api/v2/projects/53/update/
+          sleep 15
+          job=`curl -Lk -H "Authorization: Bearer ${{ parameters.awx_token }}" -H "Content-Type: application/json" -d @${{ parameters.var }} https://awx.dev.corp.stonex.com/api/v2/job_templates/57/launch/ | jq -r '.job'`
+          # clean up afterwards, delete generated file
+          rm -rf ${{ parameters.var }}
+          finished=`curl -Lk -H "Authorization: Bearer ${{ parameters.awx_token }}" https://awx.dev.corp.stonex.com/api/v2/jobs/$job/ | jq -r '.event_processing_finished'`
+          while [ $finished != 'true' ]
+          do
+            echo "Checking the job ${job} status..."
+            failed=`curl -Lk -H "Authorization: Bearer ${{ parameters.awx_token }}" https://awx.dev.corp.stonex.com/api/v2/jobs/$job/ | jq -r '.failed'`          
+            if [ $failed == 'true' ]; then
+              echo "AWX job ${job} failed"
+              echo "https://awx.dev.corp.stonex.com/#/jobs/playbook/${job}/output"
+              exit 1;
+            else
+              finished=`curl -Lk -H "Authorization: Bearer ${{ parameters.awx_token }}" https://awx.dev.corp.stonex.com/api/v2/jobs/$job/ | jq -r '.event_processing_finished'`
+            fi 
+            sleep 30
+          done

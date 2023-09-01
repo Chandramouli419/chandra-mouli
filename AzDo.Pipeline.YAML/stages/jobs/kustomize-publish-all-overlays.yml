@@ -1,0 +1,139 @@
+###############################################################################
+#
+# DESCRIPTION: Build a set of overlays, publishing the manifests as artifacts
+#              of the build (one for each overlay). Tag the build with the
+#              overlay names that were built. Due to the nature of YAML
+#              pipelines, we must hardcode the names of the overlays... thus,
+#              the overlays must be named how this template expects ('dev',
+#              'beta', etc) - which are case-sensitive!
+#
+###############################################################################
+
+parameters:
+  baseDir: "base"
+  overlayDir: "overlays"
+  poolName: "Self-hosted scale set - Ubuntu 20.04"
+  buildSteps : []
+
+jobs:
+  - job: DetermineOverlays
+    pool:
+      name: ${{ parameters.poolName }}
+    steps:
+      - bash: |
+          # set an output variable for each overlay to build, formatted like `buildX`
+          # with X as the overlay name (name of directory). Additionally, sets `buildbase`
+          # if base directory was changed. Used to conditionally run Jobs below in parallel.
+
+          overlaysToBuild=""
+          changes="$(Build.SourcesDirectory)/.changes"
+          git diff-tree -m --no-commit-id --name-only -r $(Build.SourceVersion) > $changes
+
+          echo "Changes:"
+          echo "----"
+          cat ${changes}
+          echo "----"
+          echo ""
+
+          echo "Searching for changes in ${{ parameters.baseDir }}..."
+          baseChanges=$( cat ${changes} | grep ^${{ parameters.baseDir }} )
+          if [[ "${baseChanges}" != "" ]]
+          then
+            echo "  ${{ parameters.baseDir }} was modified."
+            echo "##vso[task.setvariable variable=buildbase;isOutput=true]1"
+            pushd ${{ parameters.overlayDir }} > /dev/null
+              for o in $( ls -d1 */ )
+              do
+                o=${o::-1} # remove final '/' char
+                echo "  attempting to build ${o}"
+                echo "##vso[task.setvariable variable=build${o};isOutput=true]1"
+              done
+            popd > /dev/null
+          else
+            echo "  ${{ parameters.baseDir }} was not modified."
+            echo "##vso[task.setvariable variable=buildbase;isOutput=true]0"
+            pushd ${{ parameters.overlayDir }} > /dev/null
+              for o in $( ls -d1 */ )
+              do
+                o=${o::-1} # remove final '/' char
+                overlayDir=${{ parameters.overlayDir }}/${o}
+                echo "Searching for changes in ${overlayDir}..."
+                overlayChanges=$( cat ${changes} | grep ^${overlayDir} )
+                if [[ "${overlayChanges}" != "" ]]
+                then
+                  echo "  ${overlayDir} was modified."
+                  echo "##vso[task.setvariable variable=build${o};isOutput=true]1"
+                else
+                  echo "  ${overlayDir} was not modified."
+                fi
+              done
+            popd > /dev/null
+          fi
+        displayName: "Determine changed overlay"
+        name: bash
+
+  - job: BuildDev
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq( dependencies.DetermineOverlays.outputs['bash.builddev'],1))
+    steps:
+      - ${{ parameters.buildSteps }}
+      - template: steps/kustomize-publish-overlay.yml
+        parameters:
+          overlayName: "dev"
+          overlayDir: ${{ parameters.overlayDir }}
+  - job: BuildBeta
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq( dependencies.DetermineOverlays.outputs['bash.buildbeta'],1))
+    steps:
+      - ${{ parameters.buildSteps }}
+      - template: steps/kustomize-publish-overlay.yml
+        parameters:
+          overlayName: "beta"
+          overlayDir: ${{ parameters.overlayDir }}
+  - job: BuildStaging
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq( dependencies.DetermineOverlays.outputs['bash.buildstaging'],1))
+    steps:
+      - ${{ parameters.buildSteps }}
+      - template: steps/kustomize-publish-overlay.yml
+        parameters:
+          overlayName: "staging"
+          overlayDir: ${{ parameters.overlayDir }}
+  - job: BuildUAT
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq( dependencies.DetermineOverlays.outputs['bash.builduat'],1))
+    steps:
+      - ${{ parameters.buildSteps }}
+      - template: steps/kustomize-publish-overlay.yml
+        parameters:
+          overlayName: "uat"
+          overlayDir: ${{ parameters.overlayDir }}
+  - job: BuildProd
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq( dependencies.DetermineOverlays.outputs['bash.buildprod'],1))
+    steps:
+      - ${{ parameters.buildSteps }}
+      - template: steps/kustomize-publish-overlay.yml
+        parameters:
+          overlayName: "prod"
+          overlayDir: ${{ parameters.overlayDir }}
+  - job: AddBaseTag
+    pool:
+      name: ${{ parameters.poolName }}
+    dependsOn: DetermineOverlays
+    condition: and(succeeded(), eq(dependencies.DetermineOverlays.outputs['bash.buildbase'],1))
+    steps:
+      - task: AddTag@0
+        inputs:
+          tags: |
+            base

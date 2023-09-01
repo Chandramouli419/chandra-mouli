@@ -1,0 +1,84 @@
+###############################################################################
+#
+# DESCRIPTION: This template generates TF Plan for review and sends for approval.
+#              Vanilla TF files are published as artifacts, which should be consumed 
+#              by  release pipeline.
+#              Approvers variable should be passed as
+#              - name: <your var name>
+#                value: |
+#                   monica.kumar@stonex.com
+#                   Aziz.Miah@stonex.com
+# Pre-reqs: 
+#             - AZ Client ID
+#             - AZ Client Secret
+#             - AZ Storage A/C
+#             - AZ Storage Container
+#
+# Parameters naming convention for the provider/backend config:
+#             - az_client_id
+#             - az_client_secre
+#             - az_tenant_id
+#             - az_stg_acc_rg_name (storage account rg name)
+#             - az_stg_acc
+#             - az_stg_container
+#             - az_tf_state_file
+################################################################################
+
+parameters:
+  az_client_id: ''                     # az_client_id
+  az_client_secret: ''                 # Az Client Secret
+  az_tenant_id: ''                     # Az Tenant Id
+  az_rg_name: ''                       # AZ RG Name
+  az_stg_acc: ''                       # AZ Storage Account
+  az_stg_container: ''                 # AZ Container Name
+  access_key: ''                       # Storage Account Access Key
+  az_tf_state_file: ''                 # Terraform State File
+  tf_var_file: 'terraform.tfvars'      # TF Vars File
+  working_directory: ''                # Working Directory
+  source_directory: ''                 # Top Level source directory (containing all shared modules)
+  tf_plan: 'tfplan'                    # name of tf plan
+  pool_name: 'OnPremWindows'           # pool name
+  to_mail: ''                          # Mail Reciever
+  from_mail: 'DG-DevOps@StoneX.com'    # Mail Sender
+  approvers: ''                        # approvers
+  copy_from_top: true                  # Copy from top level (true/false)
+  specific_directory: ''               # To be used if copy from top level is false
+
+jobs:
+- job: TFPlanGenerate
+  pool:
+    name: ${{parameters.pool_name}}
+  steps:
+  - template: steps/tf-plan.yaml
+    parameters:
+      az_client_id: ${{ parameters.az_client_id }}
+      az_client_secret: ${{ parameters.az_client_secret }}
+      az_tenant_id: ${{ parameters.az_tenant_id }}                     
+      az_stg_acc_rg_name: ${{ parameters.az_stg_acc_rg_name }}                  
+      az_stg_acc: ${{ parameters.az_stg_acc }}               
+      az_stg_container: ${{ parameters.az_stg_container }}                 
+      access_key: ${{ parameters.access_key }}                       
+      az_tf_state_file: ${{ parameters.az_tf_state_file }}
+      tf_var_file: ${{ parameters.tf_var_file }}      
+      working_directory: ${{ parameters.working_directory }}
+      source_directory: ${{parameters.source_directory}}              
+      tf_plan: ${{ parameters.tf_plan }}
+      to_mail: ${{parameters.to_mail}}
+      from_mail: ${{parameters.from_mail}}
+      #variable_group: ${{parameters.variable_group}}
+      copy_from_top: ${{parameters.copy_from_top}}
+      specific_directory: ${{parameters.specific_directory}}
+      
+- job: waitForValidation
+  displayName: Wait for external validation  
+  pool: server
+  dependsOn: TFPlanGenerate  
+  steps:
+  - ${{ if ne(parameters.to_mail, '') }}:   
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: |
+          ${{parameters.approvers}}
+        instructions: 'Please validate the build configuration and resume'
+        onTimeout: 'reject'   

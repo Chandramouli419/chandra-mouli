@@ -1,0 +1,48 @@
+###############################################################################
+#
+# DESCRIPTION: Build/Push a docker image, then edit a DSC repo to reflect the
+#              new build number.
+#
+###############################################################################
+
+parameters:
+  dockerRegistry: intlfcstone-acr
+  dockerRepo: ''
+  dockerfile: Dockerfile
+  dockerBuildContext: '.'
+  dockerBuildArguments: ''
+  dockerTags: $(Build.BuildNumber)
+  dscRemoteUrl: ''
+  dscDeployBranch: ''
+  dscKustomizeDir: '.'
+  dscImageName: ' '
+  dscImageTag: $(Build.BuildNumber)
+  poolName: Self-hosted scale set - Ubuntu 20.04
+  dscBumpPoolName: Self-hosted scale set - Ubuntu 20.04
+
+jobs:
+- job: DockerBuildAndPush
+  pool:
+    name: ${{ parameters.poolName }}
+  steps:
+  - template: steps/docker-build-and-push.yml
+    parameters:
+      registry: ${{ parameters.dockerRegistry }}
+      repo: ${{ parameters.dockerRepo }}
+      dockerfile: ${{ parameters.dockerfile }}
+      buildContext: ${{ parameters.dockerBuildContext }}
+      buildArguments: ${{ parameters.dockerBuildArguments }}
+      tags: ${{ parameters.dockerTags }}
+- job: DscVersionBump
+  pool:
+    name: ${{ parameters.dscBumpPoolName }}
+  dependsOn: DockerBuildAndPush
+  steps:
+  - checkout: none
+  - template: steps/kustomize-edit-dsc-image.yml
+    parameters:
+      remoteUrl: ${{ parameters.dscRemoteUrl }}
+      deployBranch: ${{ parameters.dscDeployBranch }}
+      kustomizeDir: ${{ parameters.dsckustomizeDir }}
+      imageName: ${{ parameters.dscImageName }}
+      imageTag: ${{ parameters.dscImageTag }}

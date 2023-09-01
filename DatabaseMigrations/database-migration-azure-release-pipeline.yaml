@@ -1,0 +1,31 @@
+parameters:
+  - name: databaseConnectionString
+    type: string
+  - name: databaseUsername
+    type: string
+  - name: databasePassword
+    type: string
+  - name: liquibaseCommands
+    type: string  
+  - name: changeLogFilesDirectory
+    type: string
+  - name: buildContext
+    type: string
+
+steps:
+- task: CopyFiles@2
+  displayName: "Copy ChangeLogs Files from '${{ parameters.changeLogFilesDirectory }}' into '${{ parameters.buildContext }}/changelog' directory"
+  inputs:
+    SourceFolder: "${{ parameters.changeLogFilesDirectory }}"
+    Contents: '**'
+    TargetFolder: '${{ parameters.buildContext }}/changelog'
+- script: ls -l ${{ parameters.buildContext }}/changelog   
+  displayName: "List Database migrations in '${{ parameters.buildContext }}/changelog' directory"
+- task: Docker@2
+  displayName: "Executing Liquibase commands: ${{ parameters.liquibaseCommands }}"
+  inputs:
+    command: build
+    Dockerfile: '${{ parameters.buildContext }}/Dockerfile'
+    buildContext: '${{ parameters.buildContext }}'
+    arguments: '--build-arg DATABASE_CONNECTION_STRING="${{ parameters.databaseConnectionString }}" --build-arg DATABASE_USERNAME="${{ parameters.databaseUsername }}" --build-arg DATABASE_PASSWORD="${{ parameters.databasePassword }}" --build-arg COMMANDS="${{ parameters.liquibaseCommands }}" --rm --progress plain --no-cache '
+

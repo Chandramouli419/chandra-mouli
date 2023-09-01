@@ -1,0 +1,31 @@
+###############################################################################
+#
+# DESCRIPTION: Build an overlay, publish the manifest as an artifact of the
+#              build (named after the overlay). Tag the build with the overlay
+#              name.
+#
+###############################################################################
+
+parameters:
+  overlayName: 'dev'  # specific overlay to build (a directory in overlayDir)
+  overlayDir: '.'     # directory where overlays are found
+
+steps:
+- bash: |
+    set -e
+    kustomize build ${{ parameters.overlayDir }}/${{ parameters.overlayName }} > $(Build.ArtifactStagingDirectory)/manifest.yml
+    if [[ $(Build.SourceBranch) != "refs/heads/master" ]]
+    then
+        echo "##vso[task.logissue type=warning] This build was triggered for a branch other than master. This is HIGHLY discouraged because it invalidates the core principle of DSC - there should be one (and only one) location that contains the state for your application deployments. Keep your git history clean, your deployments legible, and your team up to date with your infrastructure by merging your DSC to master!"
+        echo "##vso[task.complete result=SucceededWithIssues;]DONE"
+    fi
+  displayName: Kustomize Build ${{ parameters.overlayName }}
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: '${{ parameters.overlayName }}'
+  displayName: Publish Artifact ${{ parameters.overlayName }}
+- task: AddTag@0
+  inputs:
+    tags: |
+      ${{ parameters.overlayName }}

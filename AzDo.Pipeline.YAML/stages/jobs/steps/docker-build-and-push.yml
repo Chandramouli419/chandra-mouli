@@ -1,0 +1,36 @@
+###############################################################################
+#
+# DESCRIPTION: A Strictly Better version of the standard "buildAndPush" task,
+#              because it supports arguments/context/dockerfile.
+#
+###############################################################################
+
+parameters:
+  registry: 'intlfcstone-acr'    # the registry to push to (Service Connection)
+  repo: ''                       # the repo in the registry, (without registry)
+  dockerfile: 'Dockerfile'       # dockerfile path
+  buildContext: '.'              # docker build context
+  buildArguments: ''             # any additional docker build arguments
+  tags: '$(Build.BuildNumber)'   # all tags to build/push
+
+steps:
+- task: Docker@2
+  displayName: 'Docker Build ${{ parameters.repo }}'
+  inputs:
+    containerRegistry: ${{ parameters.registry }}
+    repository: ${{ parameters.repo }}
+    command: 'build'
+    Dockerfile: ${{ parameters.dockerfile }}
+    buildContext: ${{ parameters.buildContext }}
+    arguments: |
+      ${{ parameters.buildArguments }}
+    tags: |
+      ${{ parameters.tags }}
+- task: Docker@2
+  displayName: 'Docker Push ${{ parameters.repo }}'
+  inputs:
+    containerRegistry: ${{ parameters.registry }}
+    repository: ${{ parameters.repo }}
+    command: 'push'
+    tags: |
+      ${{ parameters.tags }}

@@ -1,0 +1,22 @@
+# Build kustomize manifest files based on overlay changed and publish manifests as artifacts
+
+variables:
+  DSC_OVERLAY_DIR: Test/Overlays
+  
+trigger: none
+
+pool: 'Self-hosted scale set - Ubuntu 20.04'
+
+resources:
+  repositories:
+    - repository: innersource
+      type: git
+      name: Innersource/AzDo.Pipeline.YAML
+
+jobs:
+  - template: stages/jobs/verify-build-kustomize-overlays.yaml@innersource
+    parameters:
+      overlayDir: $(DSC_OVERLAY_DIR)
+      overlays:
+      - uat
+      - prod
