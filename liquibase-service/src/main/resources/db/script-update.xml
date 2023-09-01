@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        context="update"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xmlns:mongodb-pro="http://www.liquibase.org/xml/ns/pro-mongodb"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd
+            http://www.liquibase.org/xml/ns/pro-mongodb http://www.liquibase.org/xml/ns/pro-mongodb/liquibase-pro-mongodb-latest.xsd">
+            
+    <changeSet id="update_role" author="Mohit Gupta" runWith="mongosh">
+      <mongodb-pro:mongo>
+          db.role_1.update({"name":"user2"}, {$set:{"name":"user1"}});
+      </mongodb-pro:mongo>
+    </changeSet>
+</databaseChangeLog>

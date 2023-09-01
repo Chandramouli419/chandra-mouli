@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        context="test"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xmlns:mongodb-pro="http://www.liquibase.org/xml/ns/pro-mongodb"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.6.xsd
+http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <changeSet id="update_role1" author="chandra">
+       <ext:runCommand>
+            <ext:command>
+                {
+                update: "role_1",
+                updates: [
+                {
+                q: {"name":"user1"},
+                u: { {$push: {Employee: "employeedetails"}} },
+                multi: true
+                }
+                ]
+                }
+            </ext:command>
+        </ext:runCommand>
+    </changeSet>
+</databaseChangeLog>
